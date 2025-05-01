@@ -1,12 +1,13 @@
-from random import randint
-import pygame
 import logging
+from random import randint
+
+import pygame
 
 # Logging configure
 logging.basicConfig(
-    filename="login.log",
+    filename='login.log',
     level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
+    format='%(asctime)s - %(levelname)s - %(message)s',
 )
 
 # get logger for this module
@@ -43,7 +44,7 @@ SPEED = 10
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), 0, 32)
 
 # Window title:
-pygame.display.set_caption("Змейка")
+pygame.display.set_caption('Змейка')
 
 # Time settings:
 clock = pygame.time.Clock()
@@ -115,7 +116,7 @@ class Apple(GameObject):
                 rand_x = randint(0, GRID_WIDTH - GRID_SIZE) * GRID_SIZE
                 rand_y = randint(0, GRID_HEIGHT - GRID_SIZE) * GRID_SIZE
         self.position = (rand_x, rand_y)
-        logger.info(f"Apple change coordintaes to X: {rand_x} Y: {rand_y}")
+        logger.info('Apple change coordintaes to X: %d Y: %d', rand_x, rand_y)
 
 
 class Snake(GameObject):
@@ -293,7 +294,7 @@ def main():
     apple = Apple()
     snake = Snake()
 
-    logger.info(f"The new game has started. Speed {SPEED}")
+    logger.info('The new game has started. Speed %d', SPEED)
 
     while True:
         clock.tick(SPEED)
@@ -306,16 +307,16 @@ def main():
         # main logic. check if snake ate an apple
         if snake.get_head_position() == apple.position:
             snake.add_segment(0, apple.position)
-            logger.info(f"Snake ate an apple. Snake length {snake.length}")
+            logger.info('Snake ate an apple. Snake length %d', snake.length)
             apple.randomize_position(snake.positions)
 
         # main logic. check if the snake bit itself
         elif snake.get_head_position() in snake.positions[1:]:
             snake.reset()
-            logger.info("The snake has bit itself. Snake has reseted")
+            logger.info('The snake has bit itself. Snake has reseted')
 
         pygame.display.update()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
