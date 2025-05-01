@@ -12,44 +12,43 @@ logging.basicConfig(
 # get logger for this module
 logger = logging.getLogger(__name__)
 
-# Константы для размеров поля и сетки:
+# Constants for board and grid:
 SCREEN_WIDTH, SCREEN_HEIGHT = 640, 480
 GRID_SIZE = 20
 GRID_WIDTH = SCREEN_WIDTH // GRID_SIZE
 GRID_HEIGHT = SCREEN_HEIGHT // GRID_SIZE
 
-# Направления движения:
+# Directions:
 UP = (0, -1)
 DOWN = (0, 1)
 LEFT = (-1, 0)
 RIGHT = (1, 0)
 
-# Цвет фона - черный:
+# Background color - black:
 BOARD_BACKGROUND_COLOR = (0, 0, 0)
 
-# Цвет границы ячейки
+# Cell border color:
 BORDER_COLOR = (93, 216, 228)
 
-# Цвет яблока
+# Apple color:
 APPLE_COLOR = (255, 0, 0)
 
-# Цвет змейки
+# Snake color:
 SNAKE_COLOR = (0, 255, 0)
 
-# Скорость движения змейки:
+# Snake speed:
 SPEED = 10
 
-# Настройка игрового окна:
+# Window settings:
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), 0, 32)
 
-# Заголовок окна игрового поля:
+# Window title:
 pygame.display.set_caption("Змейка")
 
-# Настройка времени:
+# Time settings:
 clock = pygame.time.Clock()
 
 
-# Тут опишите все классы игры.
 class GameObject:
     """This is an abstract class for any game objects."""
 
@@ -288,7 +287,7 @@ def main():
     - Updates the display each frame and handles snake growth
     or reset conditions.
     """
-    # Инициализация PyGame:
+    # Inititalization PyGame:
     pygame.init()
     # Creating gameobjects
     apple = Apple()
