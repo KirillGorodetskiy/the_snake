@@ -1,23 +1,14 @@
 import logging
-from random import randint
+from random import choice, randint
 
-import pygame
-
-# Logging configure
-logging.basicConfig(
-    filename='login.log',
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-)
-
-# get logger for this module
-logger = logging.getLogger(__name__)
+import pygame as pg
 
 # Constants for board and grid:
 SCREEN_WIDTH, SCREEN_HEIGHT = 640, 480
 GRID_SIZE = 20
 GRID_WIDTH = SCREEN_WIDTH // GRID_SIZE
 GRID_HEIGHT = SCREEN_HEIGHT // GRID_SIZE
+SCREEN_CENTER = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
 
 # Directions:
 UP = (0, -1)
@@ -41,28 +32,80 @@ SNAKE_COLOR = (0, 255, 0)
 SPEED = 10
 
 # Window settings:
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), 0, 32)
+screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), 0, 32)
 
 # Window title:
-pygame.display.set_caption('Змейка')
+pg.display.set_caption("Змейка")
 
 # Time settings:
-clock = pygame.time.Clock()
+clock = pg.time.Clock()
 
 
 class GameObject:
     """This is an abstract class for any game objects."""
 
-    def __init__(self) -> None:
-        self.position: tuple = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
-        self.body_color: tuple | None = None
+    def __init__(self,
+                 position: tuple = SCREEN_CENTER,
+                 body_color: tuple | None = None
+                 ) -> None:
+
+        self.position: tuple = position
+        self.body_color: tuple | None = body_color
 
     def draw(self) -> None:
         """
         This is an empty method for realisation
         in children objects.
         """
-        pass
+
+    def draw_rect(self,
+                  position: tuple,
+                  body_color: tuple | None = None
+                  ) -> None:
+        """
+        Draws a rectangle on the screen at the specified position.
+
+        If no body color is provided,
+        the object's default `self.body_color` is used.
+
+        Args:
+            position (tuple): The (x, y) position of
+            the rectangle's top-left corner.
+
+            body_color (tuple | None): Optional RGB color tuple.
+            If None, defaults to `self.body_color`.
+
+        Returns:
+            None
+        """
+        if body_color is None:
+            body_color = self.body_color
+        rect = pg.Rect(position, (GRID_SIZE, GRID_SIZE))
+        pg.draw.rect(screen, body_color, rect)
+        pg.draw.rect(screen, BORDER_COLOR, rect, 1)
+
+    def _get_random_position(self) -> tuple:
+        """Returns a random grid-aligned (x, y) position."""
+        rand_x = randint(0, GRID_WIDTH - GRID_SIZE) * GRID_SIZE
+        rand_y = randint(0, GRID_HEIGHT - GRID_SIZE) * GRID_SIZE
+        return (rand_x, rand_y)
+
+    def remove_segments_from_board(self, segments: tuple) -> None:
+        """
+        Erases specified segments from the game board by redrawing them
+        with the background color.
+
+        Args:
+            segments (list of tuple): List of (x, y) positions
+            to be cleared from the screen.
+
+        Side Effects:
+            Overwrites each segment's rectangle area with
+            BOARD_BACKGROUND_COLOR using pg.draw.rect().
+        """
+        for segment in segments:
+            last_rect = pg.Rect(segment, (GRID_SIZE, GRID_SIZE))
+            pg.draw.rect(screen, BOARD_BACKGROUND_COLOR, last_rect)
 
 
 class Apple(GameObject):
@@ -71,12 +114,19 @@ class Apple(GameObject):
 
     This class inherits from GameObject and is used to display an apple
     at a specific position on the game screen. It sets the apple's color
-    and provides a method to draw it using Pygame.
+    and provides a method to draw it using pg.
     """
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.body_color = APPLE_COLOR
+    def __init__(self,
+                 blocked_segments: list | None = None,
+                 position: tuple | None = None,
+                 body_color: tuple | None = APPLE_COLOR
+                 ) -> None:
+        super().__init__(position, body_color)
+        if blocked_segments is None:
+            blocked_segments = []
+        # randomize_position checks collisions
+        self.randomize_position(blocked_segments)
 
     def draw(self) -> None:
         """
@@ -85,11 +135,9 @@ class Apple(GameObject):
         It draws a filled rectangle with the apple color and a border
         around it to visually distinguish it on the grid.
         """
-        rect = pygame.Rect(self.position, (GRID_SIZE, GRID_SIZE))
-        pygame.draw.rect(screen, self.body_color, rect)
-        pygame.draw.rect(screen, BORDER_COLOR, rect, 1)
+        self.draw_rect(self.position, APPLE_COLOR)
 
-    def randomize_position(self, blocked_cells: tuple | None = None) -> None:
+    def randomize_position(self, blocked_cells: list | None = None) -> None:
         """
         Randomly assigns a new position to the object on the game grid.
 
@@ -106,17 +154,20 @@ class Apple(GameObject):
             Sets self.position to a new (x, y) coordinate.
 
         Logs:
-            Logs the new coordinates with logger.info.
+            Logs the new coordinates with logging.info.
         """
-        rand_x = randint(0, GRID_WIDTH - GRID_SIZE) * GRID_SIZE
-        rand_y = randint(0, GRID_HEIGHT - GRID_SIZE) * GRID_SIZE
-        # Avoiding creation of an apple in another GameObjects like snake
-        if blocked_cells is not None and blocked_cells:
-            while (rand_x, rand_y) in blocked_cells:
-                rand_x = randint(0, GRID_WIDTH - GRID_SIZE) * GRID_SIZE
-                rand_y = randint(0, GRID_HEIGHT - GRID_SIZE) * GRID_SIZE
-        self.position = (rand_x, rand_y)
-        logger.info('Apple change coordintaes to X: %d Y: %d', rand_x, rand_y)
+        if blocked_cells is None:
+            blocked_cells = []
+        while True:
+            rand_pos = self._get_random_position()
+            # Avoiding creation of an apple in another GameObjects like snake
+            if rand_pos not in blocked_cells:
+                self.position = rand_pos
+                break
+            logging.info(
+                "Apple change coordintaes to X: %d Y: %d",
+                rand_pos[0], rand_pos[1]
+            )
 
 
 class Snake(GameObject):
@@ -125,16 +176,18 @@ class Snake(GameObject):
 
     This class inherits from GameObject and is used to display an apple
     at a specific position on the game screen. It sets the apple's color
-    and provides a method to draw it using Pygame.
+    and provides a method to draw it using pg.
     """
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.body_color = SNAKE_COLOR
-        self.positions = [self.position]
-        self.last = self.positions[-1]
-        self.direction = RIGHT
-        self.next_direction = None
+    def __init__(self,
+                 position: tuple = SCREEN_CENTER,
+                 body_color: tuple | None = SNAKE_COLOR
+                 ) -> None:
+        super().__init__(position, body_color)
+        self.positions: list = [self.position]
+        self.last: tuple | None = self.positions[-1]
+        self.direction: tuple = RIGHT
+        self.next_direction: tuple | None = None
 
     def draw(self) -> None:
         """
@@ -148,51 +201,17 @@ class Snake(GameObject):
         to erase the last segment, typically used to simulate movement.
 
         Uses:
-            - pygame.draw.rect() for rendering segments.
-            - screen (pygame.Surface): the main drawing surface.
+            - pg.draw.rect() for rendering segments.
+            - screen (pg.Surface): the main drawing surface.
             - GRID_SIZE (int): the size of each square segment.
             - BORDER_COLOR: color used for segment borders.
         """
-        for position in self.positions[:-1]:
-            rect = pygame.Rect(position, (GRID_SIZE, GRID_SIZE))
-            pygame.draw.rect(screen, self.body_color, rect)
-            pygame.draw.rect(screen, BORDER_COLOR, rect, 1)
+        # Draw snake head
+        self.draw_rect(self.positions[0])
 
-        # Отрисовка головы змейки
-        head_rect = pygame.Rect(self.positions[0], (GRID_SIZE, GRID_SIZE))
-        pygame.draw.rect(screen, self.body_color, head_rect)
-        pygame.draw.rect(screen, BORDER_COLOR, head_rect, 1)
-
-        # Затирание последнего сегмента
+        # Blank last segment
         if self.last:
             self.remove_segments_from_board([self.last])
-
-    @property
-    def length(self) -> int:
-        """
-        Returns the current length of the object based on its positions.
-
-        Returns:
-            int: The number of segments (e.g. body parts of the snake).
-        """
-        return len(self.positions)
-
-    def remove_segments_from_board(self, segments: tuple) -> None:
-        """
-        Erases specified segments from the game board by redrawing them
-        with the background color.
-
-        Args:
-            segments (list of tuple): List of (x, y) positions
-            to be cleared from the screen.
-
-        Side Effects:
-            Overwrites each segment's rectangle area with
-            BOARD_BACKGROUND_COLOR using pygame.draw.rect().
-        """
-        for segment in segments:
-            last_rect = pygame.Rect(segment, (GRID_SIZE, GRID_SIZE))
-            pygame.draw.rect(screen, BOARD_BACKGROUND_COLOR, last_rect)
 
     def move(self) -> None:
         """
@@ -209,11 +228,13 @@ class Snake(GameObject):
             Modifies self.positions (adds new head, removes tail).
             Updates self.last with the removed segment.
         """
-        head_x, head_y = self.positions[0]
+        head_x, head_y = self.get_head_position()
         dx, dy = self.direction
 
-        new_head = ((head_x + dx * GRID_SIZE) % SCREEN_WIDTH,
-                    (head_y + dy * GRID_SIZE) % SCREEN_HEIGHT)
+        new_head = (
+            (head_x + dx * GRID_SIZE) % SCREEN_WIDTH,
+            (head_y + dy * GRID_SIZE) % SCREEN_HEIGHT,
+        )
 
         self.positions.insert(0, new_head)
         self.last = self.positions.pop()
@@ -230,7 +251,8 @@ class Snake(GameObject):
 
     def add_segment(self, index: int, position: tuple) -> None:
         """Inserts a new segment at the given index in the positions list."""
-        self.positions.insert(index, position)
+        self.positions.append(self.last)
+        self.last = None
 
     def reset(self) -> None:
         """
@@ -244,10 +266,9 @@ class Snake(GameObject):
         self.remove_segments_from_board(self.positions)
 
         # renew Snake state
-        self.position = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
         self.positions = [self.position]
         self.last = self.positions[-1]
-        self.direction = RIGHT
+        self.direction = choice([UP, LEFT, RIGHT, DOWN])
         self.next_direction = None
 
 
@@ -255,7 +276,7 @@ def handle_keys(game_object):
     """
     Handles keyboard input and updates the game object's next direction.
 
-    - Quits the game if the window is closed.
+    - Quits the game if the window is closed or Escaped pressed.
     - On arrow key press, updates `next_direction` if it's not
     opposite to the current direction.
 
@@ -263,60 +284,74 @@ def handle_keys(game_object):
         game_object: The object (e.g., snake) whose direction
         is being controlled.
     """
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
+    for event in pg.event.get():
+        if event.type == pg.QUIT:
+            pg.quit()
             raise SystemExit
-        elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_UP and game_object.direction != DOWN:
+        elif event.type == pg.KEYDOWN:
+            if event.key == pg.K_UP and game_object.direction != DOWN:
                 game_object.next_direction = UP
-            elif event.key == pygame.K_DOWN and game_object.direction != UP:
+            elif event.key == pg.K_DOWN and game_object.direction != UP:
                 game_object.next_direction = DOWN
-            elif event.key == pygame.K_LEFT and game_object.direction != RIGHT:
+            elif event.key == pg.K_LEFT and game_object.direction != RIGHT:
                 game_object.next_direction = LEFT
-            elif event.key == pygame.K_RIGHT and game_object.direction != LEFT:
+            elif event.key == pg.K_RIGHT and game_object.direction != LEFT:
                 game_object.next_direction = RIGHT
+            elif event.key == pg.K_ESCAPE:
+                pg.quit()
+                raise SystemExit
 
 
 def main():
     """
     Initializes and runs the main game loop.
 
-    - Sets up PyGame and creates game objects (snake and apple).
+    - Sets up pg and creates game objects (snake and apple).
     - Runs the game loop with drawing, movement, input handling,
     and collision checks.
     - Updates the display each frame and handles snake growth
     or reset conditions.
     """
-    # Inititalization PyGame:
-    pygame.init()
+    # Inititalization pg:
+    pg.init()
     # Creating gameobjects
-    apple = Apple()
-    snake = Snake()
+    snake = Snake(SCREEN_CENTER, SNAKE_COLOR)
+    apple = Apple(snake.positions)
 
-    logger.info('The new game has started. Speed %d', SPEED)
+    logging.info("The new game has started. Speed %d", SPEED)
 
     while True:
         clock.tick(SPEED)
         apple.draw()
+        handle_keys(snake)
         snake.update_direction()
         snake.move()
         snake.draw()
-        handle_keys(snake)
 
         # main logic. check if snake ate an apple
         if snake.get_head_position() == apple.position:
             snake.add_segment(0, apple.position)
-            logger.info('Snake ate an apple. Snake length %d', snake.length)
+            logging.info("Snake ate an apple. Snake length %d",
+                         len(snake.positions))
             apple.randomize_position(snake.positions)
 
         # main logic. check if the snake bit itself
         elif snake.get_head_position() in snake.positions[1:]:
             snake.reset()
-            logger.info('The snake has bit itself. Snake has reseted')
+            # removing Rect of an old apple position from board
+            apple.remove_segments_from_board([apple.position])
+            apple.randomize_position(snake.positions)
+            logging.info("The snake has bit itself. Snake has reseted")
 
-        pygame.display.update()
+        pg.display.update()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
+    # Logging configure
+    logging.basicConfig(
+        filename="login.log",
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+    )
+
     main()
