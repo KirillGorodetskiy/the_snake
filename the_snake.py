@@ -35,7 +35,7 @@ SPEED = 10
 screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), 0, 32)
 
 # Window title:
-pg.display.set_caption("Змейка")
+pg.display.set_caption('Змейка')
 
 # Time settings:
 clock = pg.time.Clock()
@@ -165,7 +165,7 @@ class Apple(GameObject):
                 self.position = rand_pos
                 break
             logging.info(
-                "Apple change coordintaes to X: %d Y: %d",
+                'Apple change coordintaes to X: %d Y: %d',
                 rand_pos[0], rand_pos[1]
             )
 
@@ -318,7 +318,7 @@ def main():
     snake = Snake(SCREEN_CENTER, SNAKE_COLOR)
     apple = Apple(snake.positions)
 
-    logging.info("The new game has started. Speed %d", SPEED)
+    logging.info('The new game has started. Speed %d', SPEED)
 
     while True:
         clock.tick(SPEED)
@@ -331,7 +331,7 @@ def main():
         # main logic. check if snake ate an apple
         if snake.get_head_position() == apple.position:
             snake.add_segment(0, apple.position)
-            logging.info("Snake ate an apple. Snake length %d",
+            logging.info('Snake ate an apple. Snake length %d',
                          len(snake.positions))
             apple.randomize_position(snake.positions)
 
@@ -341,15 +341,15 @@ def main():
             # removing Rect of an old apple position from board
             apple.remove_segments_from_board([apple.position])
             apple.randomize_position(snake.positions)
-            logging.info("The snake has bit itself. Snake has reseted")
+            logging.info('The snake has bit itself. Snake has reseted')
 
         pg.display.update()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     # Logging configure
     logging.basicConfig(
-        filename="login.log",
+        filename='login.log',
         level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(message)s",
     )
