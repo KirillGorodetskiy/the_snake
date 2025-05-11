@@ -46,8 +46,7 @@ class GameObject:
 
     def __init__(self,
                  position: tuple = SCREEN_CENTER,
-                 body_color: tuple | None = None
-                 ) -> None:
+                 body_color: tuple | None = None) -> None:
 
         self.position: tuple = position
         self.body_color: tuple | None = body_color
@@ -60,8 +59,7 @@ class GameObject:
 
     def draw_rect(self,
                   position: tuple,
-                  body_color: tuple | None = None
-                  ) -> None:
+                  body_color: tuple | None = None) -> None:
         """
         Draws a rectangle on the screen at the specified position.
 
@@ -82,30 +80,8 @@ class GameObject:
             body_color = self.body_color
         rect = pg.Rect(position, (GRID_SIZE, GRID_SIZE))
         pg.draw.rect(screen, body_color, rect)
-        pg.draw.rect(screen, BORDER_COLOR, rect, 1)
-
-    def _get_random_position(self) -> tuple:
-        """Returns a random grid-aligned (x, y) position."""
-        rand_x = randint(0, GRID_WIDTH - GRID_SIZE) * GRID_SIZE
-        rand_y = randint(0, GRID_HEIGHT - GRID_SIZE) * GRID_SIZE
-        return (rand_x, rand_y)
-
-    def remove_segments_from_board(self, segments: tuple) -> None:
-        """
-        Erases specified segments from the game board by redrawing them
-        with the background color.
-
-        Args:
-            segments (list of tuple): List of (x, y) positions
-            to be cleared from the screen.
-
-        Side Effects:
-            Overwrites each segment's rectangle area with
-            BOARD_BACKGROUND_COLOR using pg.draw.rect().
-        """
-        for segment in segments:
-            last_rect = pg.Rect(segment, (GRID_SIZE, GRID_SIZE))
-            pg.draw.rect(screen, BOARD_BACKGROUND_COLOR, last_rect)
+        if body_color != BOARD_BACKGROUND_COLOR:
+            pg.draw.rect(screen, BORDER_COLOR, rect, 1)
 
 
 class Apple(GameObject):
@@ -120,11 +96,8 @@ class Apple(GameObject):
     def __init__(self,
                  blocked_segments: list | None = None,
                  position: tuple | None = None,
-                 body_color: tuple | None = APPLE_COLOR
-                 ) -> None:
+                 body_color: tuple | None = APPLE_COLOR) -> None:
         super().__init__(position, body_color)
-        if blocked_segments is None:
-            blocked_segments = []
         # randomize_position checks collisions
         self.randomize_position(blocked_segments)
 
@@ -136,6 +109,12 @@ class Apple(GameObject):
         around it to visually distinguish it on the grid.
         """
         self.draw_rect(self.position, APPLE_COLOR)
+
+    def _get_random_position(self) -> tuple:
+        """Returns a random grid-aligned (x, y) position."""
+        rand_x = randint(0, GRID_WIDTH - 1) * GRID_SIZE
+        rand_y = randint(0, GRID_HEIGHT - 1) * GRID_SIZE
+        return (rand_x, rand_y)
 
     def randomize_position(self, blocked_cells: list | None = None) -> None:
         """
@@ -159,14 +138,13 @@ class Apple(GameObject):
         if blocked_cells is None:
             blocked_cells = []
         while True:
-            rand_pos = self._get_random_position()
+            self.position = self._get_random_position()
             # Avoiding creation of an apple in another GameObjects like snake
-            if rand_pos not in blocked_cells:
-                self.position = rand_pos
+            if self.position not in blocked_cells:
                 break
             logging.info(
                 'Apple change coordintaes to X: %d Y: %d',
-                rand_pos[0], rand_pos[1]
+                self.position[0], self.position[1]
             )
 
 
@@ -181,8 +159,7 @@ class Snake(GameObject):
 
     def __init__(self,
                  position: tuple = SCREEN_CENTER,
-                 body_color: tuple | None = SNAKE_COLOR
-                 ) -> None:
+                 body_color: tuple | None = SNAKE_COLOR) -> None:
         super().__init__(position, body_color)
         self.positions: list = [self.position]
         self.last: tuple | None = self.positions[-1]
@@ -190,28 +167,14 @@ class Snake(GameObject):
         self.next_direction: tuple | None = None
 
     def draw(self) -> None:
-        """
-        Draws the snake on the screen, including body, head, and tail cleanup.
-
-        - Draws each segment of the snake's body except the
-        head using self.body_color, with a border around each segment.
-        - Separately draws the head (first position) for potential
-        styling distinction.
-        - If `self.last` is set, calls `remove_segments_from_board`
-        to erase the last segment, typically used to simulate movement.
-
-        Uses:
-            - pg.draw.rect() for rendering segments.
-            - screen (pg.Surface): the main drawing surface.
-            - GRID_SIZE (int): the size of each square segment.
-            - BORDER_COLOR: color used for segment borders.
-        """
+        """Draws the snake`s head and blanks the tail."""
         # Draw snake head
-        self.draw_rect(self.positions[0])
+        self.draw_rect(self.get_head_position())
 
         # Blank last segment
         if self.last:
-            self.remove_segments_from_board([self.last])
+            self.draw_rect(self.last, BOARD_BACKGROUND_COLOR)
+            self.last = None
 
     def move(self) -> None:
         """
@@ -249,7 +212,7 @@ class Snake(GameObject):
         """Returns the current position of the object's head."""
         return self.positions[0]
 
-    def add_segment(self, index: int, position: tuple) -> None:
+    def add_segment(self) -> None:
         """Inserts a new segment at the given index in the positions list."""
         self.positions.append(self.last)
         self.last = None
@@ -262,9 +225,6 @@ class Snake(GameObject):
         - Re-centers the snake and resets its direction.
         - Initializes positions, last segment, and direction values.
         """
-        # clean board from previous snake
-        self.remove_segments_from_board(self.positions)
-
         # renew Snake state
         self.positions = [self.position]
         self.last = self.positions[-1]
@@ -322,27 +282,27 @@ def main():
 
     while True:
         clock.tick(SPEED)
-        apple.draw()
+
         handle_keys(snake)
         snake.update_direction()
         snake.move()
-        snake.draw()
 
         # main logic. check if snake ate an apple
         if snake.get_head_position() == apple.position:
-            snake.add_segment(0, apple.position)
+            snake.add_segment()
             logging.info('Snake ate an apple. Snake length %d',
                          len(snake.positions))
             apple.randomize_position(snake.positions)
 
         # main logic. check if the snake bit itself
         elif snake.get_head_position() in snake.positions[1:]:
+            screen.fill(BOARD_BACKGROUND_COLOR)
             snake.reset()
-            # removing Rect of an old apple position from board
-            apple.remove_segments_from_board([apple.position])
             apple.randomize_position(snake.positions)
-            logging.info('The snake has bit itself. Snake has reseted')
+            logging.info('The snake has bit itself. Snake and Apple reseted')
 
+        apple.draw()
+        snake.draw()
         pg.display.update()
 
 
